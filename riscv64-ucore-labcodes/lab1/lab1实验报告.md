@@ -173,7 +173,7 @@ __trapret:
 3. **保存上下文**：在进入中断处理程序之前，当前执行流的上下文（包括寄存器状态、程序计数器等）需要被保存，以便在处理完中断后能够正确恢复执行。在`__alltraps`标记中调用汇编宏`SAVE_ALL`，用来保存所有寄存器（上下文）到栈顶（内存中）。
 4. **执行中断处理程序**：通过函数调用，跳转到`kern/trap/trap.c`的中断处理函数`trap()`，进入`trap()`的执行流。切换前的上下文会作为一个`trapFrame`结构体，传递给`trap()`作为函数参数。`kern/trap/trap.c`通过调用`trap_dispatch()`函数判断中断的类型是`nterrupt_handler`还是`exception_handler`，并进行分发，执行时钟中断对应的处理语句。
 5. **恢复上下文**：`trap()`的执行流执行结束后返回`kern/trap/trapentry.S`，跳转到`__trapret`标记处，调用汇编宏`RESTORE_ALL`恢复原先的上下文，中断处理结束。
-6. 
+
 ### mov a0, sp的目的
 
 `mov a0, sp`汇编指令的作用是将栈指针`sp`的值复制到寄存器`a0`中。
@@ -238,13 +238,14 @@ case CAUSE_BREAKPOINT:
     /* LAB1 CHALLLENGE3   2110803 :  */
     cprintf("Exception type: breakpoint\n");
     cprintf("ebreak caught at 0x%x\n", tf->epc);
-    tf->epc += 4; //更新epc寄存器
+    tf->epc += 2; //更新epc寄存器
     /*(1)输出指令异常类型（ breakpoint）
      *(2)输出异常指令地址
      *(3)更新 tf->epc寄存器
     */
     break;
 ```
+由于`ebreak`指令占2字节长，因此，在断点异常处理中，epc需要加2以更新。
 
 修改`kern/init/init.c`中的`kern_init`函数如下：
 ```c
@@ -317,7 +318,7 @@ Exception type: Illegal instruction
 Illegal instruction caught at 0x80200050
 Exception type: breakpoint
 ebreak caught at 0x80200054
-�100 ticks
+100 ticks
 100 ticks
 100 ticks
 100 ticks

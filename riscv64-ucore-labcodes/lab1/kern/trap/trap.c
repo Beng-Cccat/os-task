@@ -167,7 +167,7 @@ void exception_handler(struct trapframe *tf) {
             /* LAB1 CHALLLENGE3   2110803 :  */
             cprintf("Exception type: breakpoint\n");
             cprintf("ebreak caught at 0x%x\n", tf->epc);
-            tf->epc += 4; //更新epc寄存器
+            tf->epc += 2; //更新epc寄存器
             /*(1)输出指令异常类型（ breakpoint）
              *(2)输出异常指令地址
              *(3)更新 tf->epc寄存器
