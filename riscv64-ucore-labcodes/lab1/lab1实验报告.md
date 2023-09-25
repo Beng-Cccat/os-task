@@ -80,7 +80,7 @@ SECTIONS /*section指令指示了输出文件的所有section的布局*/
 
 以及通过lab0.5的gdb验证，我们可以得知`kern_entry`是整个内核的入口点，这一段代码被放置在了链接输出文件的`.text`段的开头处，即`0x80200000`。
 
-`entry.s`文件的`.data`段则定义了内核栈的大小，以及符号`boostack`，`boostacktop`。由链接脚本生成于最终的输出文件中。
+`entry.s`文件的`.data`段则定义了内核栈的大小，以及符号`bootstack`，`bootstacktop`。由链接脚本生成于最终的输出文件中。
 
 `kern_entry`作为整个内核的入口点，作用为完成内核栈的分配：
 
@@ -165,9 +165,11 @@ __trapret:
 `interrupt_handler()`根据CSR`cause`的值，跳转到`IRQ_S_TIMER`处执行定时器中断处理的相关代码。
 
 ## 扩展练习 Challenge1：描述与理解中断流程
+
 回答：描述ucore中处理中断异常的流程（从异常的产生开始），其中mov a0，sp的目的是什么？SAVE_ALL中寄寄存器保存在栈中的位置是什么确定的？对于任何中断，__alltraps 中都需要保存所有寄存器吗？请说明理由。
 
 ### ucore处理中断异常的流程
+
 1. **中断或异常触发**：调用`libs/sbi.h`中声明的`set_sbi_timer`接口，传入一个时刻，通过OpenSBI的时钟事件触发一个中断或异常。
 2. **跳转到中断处理程序**：当中断或异常发生时，跳转到`kern/trap/trapentry.S`的`__alltraps`标记。
 3. **保存上下文**：在进入中断处理程序之前，当前执行流的上下文（包括寄存器状态、程序计数器等）需要被保存，以便在处理完中断后能够正确恢复执行。在`__alltraps`标记中调用汇编宏`SAVE_ALL`，用来保存所有寄存器（上下文）到栈顶（内存中）。
@@ -189,23 +191,29 @@ __trapret:
 因此SAVE_ALL中寄存器保存在栈中的位置是由中断发生前栈顶所在的位置和寄存器保存时的顺序决定的。
 
 ### __alltraps中是否需要保存所有寄存器
+
 需要。保存寄存器后的栈顶指针需要传给`trap()`函数作为参数，如果不保存所有寄存器，函数参数将不完整，中断或异常处理将出现问题。
 
 ## 扩展练习 Challenge2：理解上下文切换机制
+
 回答：在trapentry.S中汇编代码 csrw sscratch, sp；csrrw s0, sscratch, x0实现了什么操作，目的是什么？save all里面保存了stval scause这些csr，而在restore all里面却不还原它们？那这样store的意义何在呢？
 
 ### csrw sscratch, sp实现的操作
+
 `csrw`是一个实现特权级别的寄存器和一个通用寄存器之间的写操作的指令。`csrw sscratch, sp`这条指令将`sp`寄存器的值写入了`sscratch`寄存器中，旨在保存原先的栈顶指针到`sscratch`寄存器。
 
 由于之后保存上下文时要为寄存器的保存分配内存空间，栈顶指针的值会改变。为了保证中断处理程序执行完后能够恢复上下文，需要存储之前`sp`栈顶寄存器的值。
 
 ### csrrw s0, sscratch, x0实现的操作
+
 `csrrw`是一个实现特权级别的寄存器操作的指令。`csrrw s0, sscratch, x0`这条指令从`sscratch`中读取当前值，并将该值写入通用寄存器`s0`。之后将`x0`的值写入`sscratch`寄存器，覆盖其中原有的值（在RISCV架构中，`x0`寄存器被视为零寄存器，因此这里相当于清空`sscratch`寄存器）。
 
 由于RISCV不能直接从CSR写到内存，需要csrr把CSR读取到通用寄存器，再从通用寄存器STORE到内存。因此这里将`sscratch`中的值读入通用寄存器后再保存到内存。
 
 ### save all里面保存了stval scause这些csr，而在restore all里面却不还原它们？store的意义何在？
+
 部分CSR寄存器中存储的信息如下：
+
 + `sscratch`寄存器：通常用于保存临时数据，以便在异常处理或中断处理期间保持上下文信息。
 + `sstatus`寄存器：包含了当前的处理器状态信息，如特权级别、中断使能位、用户/核心模式等。
 + `sepc`寄存器：存储了异常或中断的返回地址。
@@ -216,11 +224,12 @@ __trapret:
 
 但部分寄存器（例如`scause`、`sbadaddr`等）的值通常是保持不变的，因此不用在`RESTORE_ALL`中恢复它们。
 
-
 ## 扩展练习Challenge3：完善异常中断
+
 编程完善在mret触发一条非法指令异常，和在kern/trap/trap.c的异常处理函数中捕获，并对其进行处理，简单输出异常类型和异常指令触发地址，即“Illegal instruction caught at 0x(地址)”，“ebreak caught at 0x（地址）”与“Exception type:Illegal instruction”，“Exception type: breakpoint”。
 
 完善部分的代码如下所示：
+
 ```c
 case CAUSE_ILLEGAL_INSTRUCTION:
     // 非法指令异常处理
@@ -245,9 +254,11 @@ case CAUSE_BREAKPOINT:
     */
     break;
 ```
+
 由于`ebreak`指令占2字节长，因此，在断点异常处理中，epc需要加2以更新。
 
 修改`kern/init/init.c`中的`kern_init`函数如下：
+
 ```c
 int kern_init(void) {
     extern char edata[], end[];
@@ -271,7 +282,7 @@ int kern_init(void) {
 
     asm("mret");
     asm("ebreak");
-    
+
     while (1)
         ;
 }
@@ -282,6 +293,7 @@ int kern_init(void) {
 在之后加入`asm("ebreak");`，这是RISCV中的断点指令，用于在程序中插入一个断点。在这里，它会触发一个断点异常，这样内核就会进入中断处理程序，运行到我们之前写的程序的位置。
 
 运行结果如下所示：
+
 ```
 OpenSBI v0.4 (Jul  2 2019 11:53:53)
    ____                    _____ ____ _____
