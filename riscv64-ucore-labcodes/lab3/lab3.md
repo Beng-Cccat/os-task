@@ -106,7 +106,7 @@ pte_t *get_pte(pde_t *pgdir, uintptr_t la, bool create)
 
 这一段代码找到了最高级页表项的地址`pdep1`；然后，通过检验有效位`PTE_V`判断是否存在对应页表。如果存在则进入下一部分代码。
 
-如果不存在则分配页并创建新页表：
+如果不存在则分配页并创建新页表。
 
 ```c
     pde_t *pdep0 = &((pde_t *)KADDR(PDE_ADDR(*pdep1)))[PDX0(la)];
