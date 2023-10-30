@@ -62,6 +62,7 @@ struct Page *pgdir_alloc_page(pde_t *pgdir, uintptr_t la, uint32_t perm);
  * corresponding physical address.  It panics if you pass it a non-kernel
  * virtual address.
  * */
+// 用于将内核虚拟地址转换为相应物理地址
 #define PADDR(kva)                                                 \
     ({                                                             \
         uintptr_t __m_kva = (uintptr_t)(kva);                      \
@@ -75,6 +76,7 @@ struct Page *pgdir_alloc_page(pde_t *pgdir, uintptr_t la, uint32_t perm);
  * KADDR - takes a physical address and returns the corresponding kernel virtual
  * address. It panics if you pass an invalid physical address.
  * */
+// 用于将内核物理地址转换为相应虚拟地址
 #define KADDR(pa)                                                \
     ({                                                           \
         uintptr_t __m_pa = (pa);                                 \
@@ -90,16 +92,22 @@ extern size_t npage;
 extern const size_t nbase;
 extern uint_t va_pa_offset;
 
+// 物理页号=数组地址-数组起始地址+基准值
 static inline ppn_t page2ppn(struct Page *page) { return page - pages + nbase; }
 
+// 页面起始物理地址=页号左移
 static inline uintptr_t page2pa(struct Page *page) {
     return page2ppn(page) << PGSHIFT;
 }
 
+// 将给定的物理地址转换为相应的页面结构体指针
 static inline struct Page *pa2page(uintptr_t pa) {
+    // 使用了PPN宏将物理地址pa转换为页号
     if (PPN(pa) >= npage) {
+        // 如果页号大于总页数，报错
         panic("pa2page called with invalid pa");
     }
+    // 索引由对应的页号减去保留页数决定
     return &pages[PPN(pa) - nbase];
 }
 
@@ -107,6 +115,7 @@ static inline void *page2kva(struct Page *page) { return KADDR(page2pa(page)); }
 
 static inline struct Page *kva2page(void *kva) { return pa2page(PADDR(kva)); }
 
+// 从页表项得到对应的页
 static inline struct Page *pte2page(pte_t pte) {
     if (!(pte & PTE_V)) {
         panic("pte2page called with invalid pte");
@@ -114,6 +123,7 @@ static inline struct Page *pte2page(pte_t pte) {
     return pa2page(PTE_ADDR(pte));
 }
 
+// PDE(Page Directory Entry)指的是不在叶节点的页表项
 static inline struct Page *pde2page(pde_t pde) {
     return pa2page(PDE_ADDR(pde));
 }

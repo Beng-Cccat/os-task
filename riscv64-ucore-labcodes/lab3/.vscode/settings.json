@@ -1,0 +1,19 @@
+{
+    "files.associations": {
+        "sync.h": "c",
+        "defs.h": "c",
+        "kmonitor.h": "c",
+        "swap.h": "c",
+        "ide.h": "c",
+        "vmm.h": "c",
+        "intr.h": "c",
+        "pmm.h": "c",
+        "clock.h": "c",
+        "trap.h": "c",
+        "kdebug.h": "c",
+        "console.h": "c",
+        "string.h": "c",
+        "stdio.h": "c",
+        "swap_fifo.h": "c"
+    }
+}

@@ -35,6 +35,7 @@
 */
 
 // szx func : print_vma and print_mm
+// vma描述了一块连续的虚拟内存区域
 void print_vma(char *name, struct vma_struct *vma){
 	cprintf("-- %s print_vma --\n", name);
 	cprintf("   mm_struct: %p\n",vma->vm_mm);
@@ -43,6 +44,7 @@ void print_vma(char *name, struct vma_struct *vma){
 	cprintf("   list_entry_t: %p\n",&vma->list_link);
 }
 
+// mm代表一组具有相同页目录表的连续虚拟内存区域的内存管理器
 void print_mm(char *name, struct mm_struct *mm){
 	cprintf("-- %s print_mm --\n",name);
 	cprintf("   mmap_list: %p\n",&mm->mmap_list);
@@ -59,16 +61,23 @@ static void check_vma_struct(void);
 static void check_pgfault(void);
 
 // mm_create -  alloc a mm_struct & initialize it.
+// 创建并初始化一个mm_struct结构，表示一个虚拟内存管理器
+// 把一个页表对应的信息组合起来
 struct mm_struct *
 mm_create(void) {
+    // 为虚拟内存管理器分配内存
     struct mm_struct *mm = kmalloc(sizeof(struct mm_struct));
-
     if (mm != NULL) {
+        // 初始化mm结构中mmap_list成员，这个链表用于存储虚拟内存区域
         list_init(&(mm->mmap_list));
+        // vma缓存为空
         mm->mmap_cache = NULL;
+        // 页目录表为空
         mm->pgdir = NULL;
+        // vma数量为空
         mm->map_count = 0;
 
+        // 初始化虚拟内存管理器的交换相关信息
         if (swap_init_ok) swap_init_mm(mm);
         else mm->sm_priv = NULL;
     }
@@ -118,6 +127,7 @@ find_vma(struct mm_struct *mm, uintptr_t addr) {
 
 
 // check_vma_overlap - check if vma1 overlaps vma2 ?
+// 再插入一个新的vma_struct之前，需要保证其与原有的区间不重合
 static inline void
 check_vma_overlap(struct vma_struct *prev, struct vma_struct *next) {
     assert(prev->vm_start < prev->vm_end);
@@ -127,6 +137,7 @@ check_vma_overlap(struct vma_struct *prev, struct vma_struct *next) {
 
 
 // insert_vma_struct -insert vma in mm's list link
+// 插入某个虚拟地址对应的vma_struct
 void
 insert_vma_struct(struct mm_struct *mm, struct vma_struct *vma) {
     assert(vma->vm_start < vma->vm_end);
@@ -329,13 +340,17 @@ volatile unsigned int pgfault_num=0;
  */
 int
 do_pgfault(struct mm_struct *mm, uint_t error_code, uintptr_t addr) {
+    // addr:访问出错的虚拟地址
     int ret = -E_INVAL;
     //try to find a vma which include addr
+    // 找到包含该虚拟地址的vma结构
     struct vma_struct *vma = find_vma(mm, addr);
 
+    // 判断该虚拟地址在mm_struct中是否可用
     pgfault_num++;
     //If the addr is in the range of a mm's vma?
     if (vma == NULL || vma->vm_start > addr) {
+        // 如果该虚拟地址不在mm的vma中
         cprintf("not valid addr %x, and  can not find it in vma\n", addr);
         goto failed;
     }
@@ -346,10 +361,13 @@ do_pgfault(struct mm_struct *mm, uint_t error_code, uintptr_t addr) {
      * THEN
      *    continue process
      */
+    // 创建perm以设置访问权限
     uint32_t perm = PTE_U;
     if (vma->vm_flags & VM_WRITE) {
+        // 如果vma允许写入，则可读可写
         perm |= (PTE_R | PTE_W);
     }
+    // 地址向下舍入到页面大小的倍数，以获取页面的起始地址
     addr = ROUNDDOWN(addr, PGSIZE);
 
     ret = -E_NO_MEM;
@@ -373,16 +391,18 @@ do_pgfault(struct mm_struct *mm, uint_t error_code, uintptr_t addr) {
     *
     */
 
-
+    // 获取页表项的指针
     ptep = get_pte(mm->pgdir, addr, 1);  //(1) try to find a pte, if pte's
                                          //PT(Page Table) isn't existed, then
                                          //create a PT.
     if (*ptep == 0) {
+        // 如果页面表项为空，则创建一个新的页面表来映射该地址
         if (pgdir_alloc_page(mm->pgdir, addr, perm) == NULL) {
             cprintf("pgdir_alloc_page in do_pgfault failed\n");
             goto failed;
         }
     } else {
+        // 如果ptep不为空，说明对应的页面表项已经存在
         /*LAB3 EXERCISE 3: YOUR CODE
         * 请你根据以下信息提示，补充函数
         * 现在我们认为pte是一个交换条目，那我们应该从磁盘加载数据并放到带有phy addr的页面，
@@ -401,11 +421,22 @@ do_pgfault(struct mm_struct *mm, uint_t error_code, uintptr_t addr) {
             //(1）According to the mm AND addr, try
             //to load the content of right disk page
             //into the memory which page managed.
+            // 得到虚拟地址对应的物理地址
+            // 从磁盘加载数据并放到addr的页面
+            ret=swap_in(mm,addr,&page);
+            if(ret!=0){
+                cprintf("swap failed\n");
+                goto failed;
+            }
             //(2) According to the mm,
             //addr AND page, setup the
             //map of phy addr <--->
             //logical addr
+            //加入映射
+            page_insert(mm->pgdir,page,addr,perm);
             //(3) make the page swappable.
+            // 设置页面可交换
+            swap_map_swappable(mm,addr,page,1);
             page->pra_vaddr = addr;
         } else {
             cprintf("no swap_init_ok but ptep is %x, failed\n", *ptep);

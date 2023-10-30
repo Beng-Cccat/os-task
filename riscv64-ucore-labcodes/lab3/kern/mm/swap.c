@@ -2,6 +2,7 @@
 #include <swapfs.h>
 #include <swap_fifo.h>
 #include <swap_clock.h>
+#include <swap_lru.h>
 #include <stdio.h>
 #include <string.h>
 #include <memlayout.h>
@@ -17,13 +18,18 @@
 // the max access seq number
 #define MAX_SEQ_NO 10
 
+// 存储页面置换算法的管理器
 static struct swap_manager *sm;
+// 用于存储最大的交换偏移量
 size_t max_swap_offset;
 
+// 表示虚拟内存管理器是否成功初始化
 volatile int swap_init_ok = 0;
 
+// 存储虚拟内存页面
 unsigned int swap_page[CHECK_VALID_VIR_PAGE_NUM];
 
+// 记录页面交换的序列号
 unsigned int swap_in_seq_no[MAX_SEQ_NO],swap_out_seq_no[MAX_SEQ_NO];
 
 static void check_swap(void);
@@ -31,19 +37,23 @@ static void check_swap(void);
 int
 swap_init(void)
 {
+     // 初始化虚拟内存交换文件系统
      swapfs_init();
 
      // Since the IDE is faked, it can only store 7 pages at most to pass the test
+     // 判断最大交换偏移是否在范围内
      if (!(7 <= max_swap_offset &&
         max_swap_offset < MAX_SWAP_OFFSET_LIMIT)) {
         panic("bad max_swap_offset %08x.\n", max_swap_offset);
      }
 
+     // 初始化置换管理器，使用FIFO
      sm = &swap_manager_clock;//use first in first out Page Replacement Algorithm
      int r = sm->init();
      
      if (r == 0)
      {
+          // 初始化成功
           swap_init_ok = 1;
           cprintf("SWAP: manager = %s\n", sm->name);
           check_swap();
@@ -78,6 +88,8 @@ swap_set_unswappable(struct mm_struct *mm, uintptr_t addr)
 
 volatile unsigned int swap_out_num=0;
 
+// 将页面从物理内存交换到磁盘的交换文件中
+// 参数：虚拟内存管理结构的指针，交换出的页面数量，是否在时钟中断时执行
 int
 swap_out(struct mm_struct *mm, int n, int in_tick)
 {
@@ -88,7 +100,9 @@ swap_out(struct mm_struct *mm, int n, int in_tick)
           //struct Page **ptr_page=NULL;
           struct Page *page;
           // cprintf("i %d, SWAP: call swap_out_victim\n",i);
-          int r = sm->swap_out_victim(mm, &page, in_tick);
+          int r = sm->swap_out_victim(mm, &page, in_tick);// 调用页面置换算法的接口
+          // r=0表示成功找到了可以换出去的页面
+          // 要换出去的物理页面存在page里
           if (r != 0) {
                     cprintf("i %d, swap_out: call swap_out_victim failed\n",i);
                   break;
@@ -97,36 +111,43 @@ swap_out(struct mm_struct *mm, int n, int in_tick)
 
           //cprintf("SWAP: choose victim page 0x%08x\n", page);
           
+          //获取物理页面对应的虚拟地址
           v=page->pra_vaddr; 
           pte_t *ptep = get_pte(mm->pgdir, v, 0);
           assert((*ptep & PTE_V) != 0);
 
           if (swapfs_write( (page->pra_vaddr/PGSIZE+1)<<8, page) != 0) {
+               // 将要换出的物理页面写到硬盘上的交换区，为0说明失败了
                     cprintf("SWAP: failed to save\n");
                     sm->map_swappable(mm, v, page, 0);
                     continue;
           }
           else {
+               // 成功换出
                     cprintf("swap_out: i %d, store page in vaddr 0x%x to disk swap entry %d\n", i, v, page->pra_vaddr/PGSIZE+1);
                     *ptep = (page->pra_vaddr/PGSIZE+1)<<8;
                     free_page(page);
           }
-          
+          // 刷新TLB
           tlb_invalidate(mm->pgdir, v);
      }
      return i;
 }
 
+// 用于将页面从磁盘的交换文件中交换到物理内存
+// 参数：虚拟内存管理结构的指针，要交换入的页面的虚拟地址，用于存储交换入的页面的地址指针
 int
 swap_in(struct mm_struct *mm, uintptr_t addr, struct Page **ptr_result)
 {
      struct Page *result = alloc_page();
      assert(result!=NULL);
 
+     // 找到/构建对应的页表项
      pte_t *ptep = get_pte(mm->pgdir, addr, 0);
      // cprintf("SWAP: load ptep %x swap entry %d to vaddr 0x%08x, page %x, No %d\n", ptep, (*ptep)>>8, addr, result, (result-pages));
     
      int r;
+     // 将数据从硬盘读取到内存
      if ((r = swapfs_read((*ptep), result)) != 0)
      {
         assert(r!=0);
@@ -137,7 +158,7 @@ swap_in(struct mm_struct *mm, uintptr_t addr, struct Page **ptr_result)
 }
 
 
-
+// 模拟虚拟内存中的内存访问情况，监测页面错误异常的发生次数
 static inline void
 check_content_set(void)
 {
@@ -159,6 +180,7 @@ check_content_set(void)
      assert(pgfault_num==4);
 }
 
+// 对页面置换算法的测试函数
 static inline int
 check_content_access(void)
 {

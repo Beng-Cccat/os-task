@@ -44,13 +44,16 @@ _fifo_init_mm(struct mm_struct *mm)
 static int
 _fifo_map_swappable(struct mm_struct *mm, uintptr_t addr, struct Page *page, int swap_in)
 {
+    // 获取链表头指针
     list_entry_t *head=(list_entry_t*) mm->sm_priv;
+    // 返回page的链表节点
     list_entry_t *entry=&(page->pra_page_link);
  
     assert(entry != NULL && head != NULL);
     //record the page access situlation
 
     //(1)link the most recent arrival page at the back of the pra_list_head qeueue.
+    // 将页面添加到队尾
     list_add(head, entry);
     return 0;
 }
@@ -61,15 +64,19 @@ _fifo_map_swappable(struct mm_struct *mm, uintptr_t addr, struct Page *page, int
 static int
 _fifo_swap_out_victim(struct mm_struct *mm, struct Page ** ptr_page, int in_tick)
 {
+    // 获取链表头节点的交换信息
      list_entry_t *head=(list_entry_t*) mm->sm_priv;
          assert(head != NULL);
      assert(in_tick==0);
      /* Select the victim */
      //(1)  unlink the  earliest arrival page in front of pra_list_head qeueue
      //(2)  set the addr of addr of this page to ptr_page
+    // 获取需要交换出的节点
     list_entry_t* entry = list_prev(head);
     if (entry != head) {
+        // 在链表中删除要换出的节点
         list_del(entry);
+        // 赋值，作为换出
         *ptr_page = le2page(entry, pra_page_link);
     } else {
         *ptr_page = NULL;

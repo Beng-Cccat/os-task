@@ -12,12 +12,15 @@
 #include <swap.h>
 #include <kmonitor.h>
 
+//函数kern_init的声明，告诉编译器这个函数不会返回
 int kern_init(void) __attribute__((noreturn));
 void grade_backtrace(void);
 
 
 int
 kern_init(void) {
+    //在kernel.ld中
+    //将.bss段（未初始化数据段）初始化为0值
     extern char edata[], end[];
     memset(edata, 0, end - edata);
 
@@ -28,6 +31,7 @@ kern_init(void) {
 
     // grade_backtrace();
 
+    //调用pmm_init函数完成物理内存的管理初始化
     pmm_init();                 // init physical memory management
 
     idt_init();                 // init interrupt descriptor table
