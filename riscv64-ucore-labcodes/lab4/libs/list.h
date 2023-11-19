@@ -6,7 +6,7 @@
 #include <defs.h>
 
 /* *
- * Simple doubly linked list implementation.
+ * Simple doubly linked list implementation. 简单的双向链表
  *
  * Some of the internal functions ("__xxx") are useful when manipulating
  * whole lists rather than single entries, as sometimes we already know
@@ -14,23 +14,36 @@
  * directly rather than using the generic single-entry routines.
  * */
 
+//链表的节点
 struct list_entry {
     struct list_entry *prev, *next;
+    //包括前向和后向指针
 };
 
 typedef struct list_entry list_entry_t;
 
+//初始化链表节点，使其成为一个独立的循环链表
 static inline void list_init(list_entry_t *elm) __attribute__((always_inline));
+//添加elm节点在listelm节点后面
 static inline void list_add(list_entry_t *listelm, list_entry_t *elm) __attribute__((always_inline));
+//将elm节点加到listelm节点之前
 static inline void list_add_before(list_entry_t *listelm, list_entry_t *elm) __attribute__((always_inline));
+//将elm节点加到listelm节点后面
 static inline void list_add_after(list_entry_t *listelm, list_entry_t *elm) __attribute__((always_inline));
+//从链表中删除listelm节点，list_empty()函数对于listelm节点会返回false
 static inline void list_del(list_entry_t *listelm) __attribute__((always_inline));
+//从链表中删除list_entry_t节点，并重新初始化，list_empty()函数会返回true
 static inline void list_del_init(list_entry_t *listelm) __attribute__((always_inline));
+//判断list链表是否为空，即该链表中是否只有这一个节点
 static inline bool list_empty(list_entry_t *list) __attribute__((always_inline));
+//得到listelm的下一个节点
 static inline list_entry_t *list_next(list_entry_t *listelm) __attribute__((always_inline));
+//得到listelm的前一个节点
 static inline list_entry_t *list_prev(list_entry_t *listelm) __attribute__((always_inline));
 
+//将elm插入到已知相邻节点之间。这是一种内部函数，用于直接操作已知相邻节点
 static inline void __list_add(list_entry_t *elm, list_entry_t *prev, list_entry_t *next) __attribute__((always_inline));
+//从链表中删除一个节点，通过将前一个结点和后一个节点连起来，也是内部函数
 static inline void __list_del(list_entry_t *prev, list_entry_t *next) __attribute__((always_inline));
 
 /* *
@@ -44,8 +57,8 @@ list_init(list_entry_t *elm) {
 
 /* *
  * list_add - add a new entry
- * @listelm:    list head to add after
- * @elm:        new entry to be added
+ * @listelm:    list head to add after 在这个节点后添加
+ * @elm:        new entry to be added 添加的节点
  *
  * Insert the new element @elm *after* the element @listelm which
  * is already in the list.

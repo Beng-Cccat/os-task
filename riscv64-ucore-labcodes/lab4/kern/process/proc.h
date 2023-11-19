@@ -8,13 +8,15 @@
 
 
 // process's state in his life cycle
+// 进程生命周期中的状态
 enum proc_state {
-    PROC_UNINIT = 0,  // uninitialized
-    PROC_SLEEPING,    // sleeping
-    PROC_RUNNABLE,    // runnable(maybe running)
-    PROC_ZOMBIE,      // almost dead, and wait parent proc to reclaim his resource
+    PROC_UNINIT = 0,  // uninitialized 未初始化
+    PROC_SLEEPING,    // sleeping 睡眠
+    PROC_RUNNABLE,    // runnable(maybe running) 可运行态（可能正在运行）
+    PROC_ZOMBIE,      // almost dead, and wait parent proc to reclaim his resource 几乎死亡的进程，等待父进程回收资源
 };
 
+// 上下文结构体，保存了一些寄存器的值，用于进程上下文的切换
 struct context {
     uintptr_t ra;
     uintptr_t sp;
@@ -32,23 +34,26 @@ struct context {
     uintptr_t s11;
 };
 
+//进程名字的最大长度
 #define PROC_NAME_LEN               15
+//最大进程数
 #define MAX_PROCESS                 4096
+//最大进程ID
 #define MAX_PID                     (MAX_PROCESS * 2)
 
 extern list_entry_t proc_list;
 
 struct proc_struct {
-    enum proc_state state;                      // Process state
-    int pid;                                    // Process ID
-    int runs;                                   // the running times of Proces
-    uintptr_t kstack;                           // Process kernel stack
-    volatile bool need_resched;                 // bool value: need to be rescheduled to release CPU?
-    struct proc_struct *parent;                 // the parent process
-    struct mm_struct *mm;                       // Process's memory management field
-    struct context context;                     // Switch here to run process
-    struct trapframe *tf;                       // Trap frame for current interrupt
-    uintptr_t cr3;                              // CR3 register: the base addr of Page Directroy Table(PDT)
+    enum proc_state state;                      // Process state 进程状态
+    int pid;                                    // Process ID PID
+    int runs;                                   // the running times of Proces 进程运行次数
+    uintptr_t kstack;                           // Process kernel stack 进程内核栈
+    volatile bool need_resched;                 // bool value: need to be rescheduled to release CPU?  是否需要重新调度
+    struct proc_struct *parent;                 // the parent process 父进程指针
+    struct mm_struct *mm;                       // Process's memory management field 进程内存管理空间
+    struct context context;                     // Switch here to run process  进程上下文（即寄存器的内容）
+    struct trapframe *tf;                       // Trap frame for current interrupt 保存中断信息的结构
+    uintptr_t cr3;                              // CR3 register: the base addr of Page Directroy Table(PDT) 页表地址
     uint32_t flags;                             // Process flag
     char name[PROC_NAME_LEN + 1];               // Process name
     list_entry_t list_link;                     // Process link list 

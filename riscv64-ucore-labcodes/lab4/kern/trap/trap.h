@@ -3,6 +3,7 @@
 
 #include <defs.h>
 
+//用于保存中断发生时的寄存器状态
 struct pushregs {
     uintptr_t zero;  // Hard-wired zero
     uintptr_t ra;    // Return address
@@ -38,18 +39,19 @@ struct pushregs {
     uintptr_t t6;    // Temporary
 };
 
+// 保存中断处理时的整个中断帧
 struct trapframe {
-    struct pushregs gpr;
-    uintptr_t status;
-    uintptr_t epc;
-    uintptr_t badvaddr;
-    uintptr_t cause;
+    struct pushregs gpr; //寄存器信息
+    uintptr_t status; //中断状态寄存器
+    uintptr_t epc; //程序计数器
+    uintptr_t badvaddr; //发生异常的虚拟地址
+    uintptr_t cause; //中断原因
 };
 
-void trap(struct trapframe *tf);
-void idt_init(void);
-void print_trapframe(struct trapframe *tf);
-void print_regs(struct pushregs* gpr);
-bool trap_in_kernel(struct trapframe *tf);
+void trap(struct trapframe *tf); //中断处理的入口函数
+void idt_init(void); //初始化中断描述符表
+void print_trapframe(struct trapframe *tf); //打印中断帧信息
+void print_regs(struct pushregs* gpr); //打印寄存器内容
+bool trap_in_kernel(struct trapframe *tf); //判断中断是否发生在内核态
 
 #endif /* !__KERN_TRAP_TRAP_H__ */

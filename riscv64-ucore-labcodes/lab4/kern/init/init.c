@@ -37,7 +37,7 @@ kern_init(void) {
     idt_init();                 // init interrupt descriptor table
 
     vmm_init();                 // init virtual memory management
-    proc_init();                // init process table
+    proc_init();                // init process table 进程初始化
     
     ide_init();                 // init ide devices
     swap_init();                // init swap
@@ -45,7 +45,7 @@ kern_init(void) {
     clock_init();               // init clock interrupt
     intr_enable();              // enable irq interrupt
 
-    cpu_idle();                 // run idle process
+    cpu_idle();                 // run idle process 执行cpu_idle函数让出CPU
 }
 
 void __attribute__((noinline))
