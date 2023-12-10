@@ -3,6 +3,7 @@
 
 /* This file contains the definitions for memory management in our OS. */
 
+//用户虚存地址空间的图形表示和宏定义
 /* *
  * Virtual memory map:                                          Permissions
  *                                                              kernel/user

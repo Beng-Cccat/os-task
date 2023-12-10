@@ -69,8 +69,16 @@ _fifo_swap_out_victim(struct mm_struct *mm, struct Page ** ptr_page, int in_tick
      //(1)  unlink the  earliest arrival page in front of pra_list_head qeueue
      //(2)  set the addr of addr of this page to ptr_page
     list_entry_t* entry = list_next(head);
-    list_del(entry);
-    *ptr_page = le2page(entry, pra_page_link);
+    // list_del(entry);
+    // *ptr_page = le2page(entry, pra_page_link);
+    if (entry != head) {
+        // 在链表中删除要换出的节点
+        list_del(entry);
+        // 赋值，作为换出
+        *ptr_page = le2page(entry, pra_page_link);
+    } else {
+        *ptr_page = NULL;
+    }
     return 0;
 }
 

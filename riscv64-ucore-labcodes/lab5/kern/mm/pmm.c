@@ -70,6 +70,7 @@ struct Page *alloc_pages(size_t n) {
 }
 
 // free_pages - call pmm->free_pages to free a continuous n*PAGESIZE memory
+//释放连续的内存页的函数
 void free_pages(struct Page *base, size_t n) {
     bool intr_flag;
     local_intr_save(intr_flag);
@@ -267,6 +268,7 @@ static inline void page_remove_pte(pde_t *pgdir, uintptr_t la, pte_t *ptep) {
     }
 }
 
+//取消映射指定虚拟地址范围的函数
 void unmap_range(pde_t *pgdir, uintptr_t start, uintptr_t end) {
     assert(start % PGSIZE == 0 && end % PGSIZE == 0);
     assert(USER_ACCESS(start, end));
@@ -278,12 +280,15 @@ void unmap_range(pde_t *pgdir, uintptr_t start, uintptr_t end) {
             continue;
         }
         if (*ptep != 0) {
+            //如果ptep不为NULL且页表项的值*ptep不为零，说明存在有效的页表项
+            //调用page_remove_pte函数，将该页表项从页表中移除。
             page_remove_pte(pgdir, start, ptep);
         }
         start += PGSIZE;
     } while (start != 0 && start < end);
 }
 
+//在释放虚拟地址空间时，逐级检查并释放相应的页表和页目录
 void exit_range(pde_t *pgdir, uintptr_t start, uintptr_t end) {
     assert(start % PGSIZE == 0 && end % PGSIZE == 0);
     assert(USER_ACCESS(start, end));
@@ -295,12 +300,16 @@ void exit_range(pde_t *pgdir, uintptr_t start, uintptr_t end) {
     d0start = ROUNDDOWN(start, PTSIZE);
     do {
         // level 1 page directory entry
+        //获得一级页目录项
         pde1 = pgdir[PDX1(d1start)];
         // if there is a valid entry, get into level 0
         // and try to free all page tables pointed to by
         // all valid entries in level 0 page directory,
         // then try to free this level 0 page directory
         // and update level 1 entry
+        //检查是否存在有效的页目录。
+        //如果存在，获取对应的二级页表，然后尝试释放所有二级页表，并更新一级页目录项。
+        //如果所有二级页表都被释放，再尝试释放一级页目录，并更新相应的一级页目录项。
         if (pde1&PTE_V){
             pd0 = page2kva(pde2page(pde1));
             // try to free all page tables
@@ -344,13 +353,23 @@ void exit_range(pde_t *pgdir, uintptr_t start, uintptr_t end) {
  *
  * CALL GRAPH: copy_mm-->dup_mmap-->copy_range
  */
+/* copy_range - 将进程 A 的内存内容（start 到 end）复制到进程 B
+ * @to:    进程 B 的页目录地址
+ * @from:  进程 A 的页目录地址
+ * @share: 标志，指示是复制还是共享。我们只使用复制方法，所以它没有被使用。
+ *
+ * 调用图: copy_mm --> dup_mmap --> copy_range
+ */
 int copy_range(pde_t *to, pde_t *from, uintptr_t start, uintptr_t end,
                bool share) {
+    //确保start和end可以整数PGSIZE
     assert(start % PGSIZE == 0 && end % PGSIZE == 0);
     assert(USER_ACCESS(start, end));
     // copy content by page unit.
+    //以页为单位进行复制
     do {
         // call get_pte to find process A's pte according to the addr start
+        //得到A&B的pte地址
         pte_t *ptep = get_pte(from, start, 0), *nptep;
         if (ptep == NULL) {
             start = ROUNDDOWN(start + PTSIZE, PTSIZE);
@@ -358,6 +377,8 @@ int copy_range(pde_t *to, pde_t *from, uintptr_t start, uintptr_t end,
         }
         // call get_pte to find process B's pte according to the addr start. If
         // pte is NULL, just alloc a PT
+        // 调用 get_pte 函数根据地址 start 查找进程 B 的页表项（PTE）。
+        // 如果 PTE 为 NULL，则分配一个页表（Page Table）。
         if (*ptep & PTE_V) {
             if ((nptep = get_pte(to, start, 1)) == NULL) {
                 return -E_NO_MEM;
@@ -368,27 +389,52 @@ int copy_range(pde_t *to, pde_t *from, uintptr_t start, uintptr_t end,
             // alloc a page for process B
             struct Page *npage = alloc_page();
             assert(page != NULL);
-            assert(npage != NULL);
             int ret = 0;
+            //COW
+            if (share) {	
+              	// 完成页面分享
+                // 如果选择共享，将父进程和子进程映射到同一位置
+                page_insert(from, page, start, perm & (~PTE_W));
+                ret = page_insert(to, page, start, perm & (~PTE_W));
+                cprintf("page_ref is %d \n",page_ref(page));
+            } else {
+                //如果不分享的话 就正常分配页面
+                struct Page *npage=alloc_page();
+                assert(npage!=NULL);
+                //(1)找寻父进程的内核虚拟页地址
+                void* src_kvaddr=page2kva(page);
+                //(2)找寻子进程的内核虚拟页地址
+                void* dst_kvaddr=page2kva(npage);
+                //(3)复制父进程内容到子进程
+                memcpy(dst_kvaddr,src_kvaddr,PGSIZE);
+                //(4)建立物理地址和子进程的页地址起始位置的映射关系
+                ret = page_insert(to,npage,start,perm);
+            }
             /* LAB5:EXERCISE2 YOUR CODE
              * replicate content of page to npage, build the map of phy addr of
              * nage with the linear addr start
+             * 复制页的内容到npage，建立nage的物理地址与线性地址start的映射
              *
              * Some Useful MACROs and DEFINEs, you can use them in below
              * implementation.
              * MACROs or Functions:
              *    page2kva(struct Page *page): return the kernel vritual addr of
              * memory which page managed (SEE pmm.h)
+             *      返回页管理的内存的内核虚拟地址（查看 pmm.h）
              *    page_insert: build the map of phy addr of an Page with the
              * linear addr la
+             *      用线性地址la建立一个Page的物理地址映射
              *    memcpy: typical memory copy function
              *
              * (1) find src_kvaddr: the kernel virtual address of page
              * (2) find dst_kvaddr: the kernel virtual address of npage
              * (3) memory copy from src_kvaddr to dst_kvaddr, size is PGSIZE
              * (4) build the map of phy addr of  nage with the linear addr start
+             * (1) 找到 src_kvaddr：页的内核虚拟地址
+             * (2) 找到 dst_kvaddr：npage的内核虚拟地址
+             * (3) 从 src_kvaddr 复制到 dst_kvaddr，大小为 PGSIZE
+             * (4) 用线性地址 start 建立 nage 的物理地址映射
              */
-
 
             assert(ret == 0);
         }
@@ -442,6 +488,7 @@ void tlb_invalidate(pde_t *pgdir, uintptr_t la) {
 // pgdir_alloc_page - call alloc_page & page_insert functions to
 //                  - allocate a page size memory & setup an addr map
 //                  - pa<->la with linear address la and the PDT pgdir
+//为给定的页目录表分配一页内存的函数
 struct Page *pgdir_alloc_page(pde_t *pgdir, uintptr_t la, uint32_t perm) {
     struct Page *page = alloc_page();
     if (page != NULL) {
