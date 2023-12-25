@@ -12,6 +12,8 @@
 #include <errno.h>
 #include <assert.h>
 
+//在ucore内核开始执行之前构造好一块符合SFS文件系统的硬盘
+
 typedef int bool;
 
 #define __error(msg, quit, ...)                                                         \

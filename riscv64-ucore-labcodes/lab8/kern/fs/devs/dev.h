@@ -9,6 +9,9 @@ struct iobuf;
 /*
  * Filesystem-namespace-accessible device.
  * d_io is for both reads and writes; the iobuf will indicates the direction.
+ * 比较抽象的“设备”的定义
+ * 支持对块设备（如磁盘）、字符设备（如键盘）的表示
+ * vfs_dev_t将device与inode联通起来
  */
 struct device {
     size_t d_blocks;

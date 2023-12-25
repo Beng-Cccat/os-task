@@ -88,6 +88,8 @@ sys_close(uint64_t arg[]) {
     return sysfile_close(fd);
 }
 
+//到了内核态，通过中断处理
+//sys_read->sysfile_read，进入文件系统抽象层处理流程完成进一步读文件的操作
 static int
 sys_read(uint64_t arg[]) {
     int fd = (int)arg[0];

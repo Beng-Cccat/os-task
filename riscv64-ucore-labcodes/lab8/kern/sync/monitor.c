@@ -43,7 +43,12 @@ cond_signal (condvar_t *cvp) {
    *          }
    *       }
    */
-  
+    if(cvp->count>0) {
+        cvp->owner->next_count ++;
+        up(&(cvp->sem));
+        down(&(cvp->owner->next)); 
+        cvp->owner->next_count --; 
+      }
    cprintf("cond_signal end: cvp %x, cvp->count %d, cvp->owner->next_count %d\n", cvp, cvp->count, cvp->owner->next_count);
 }
 
@@ -62,5 +67,12 @@ cond_wait (condvar_t *cvp) {
     *         wait(cv.sem);
     *         cv.count --;
     */
+    cvp->count++;//需要睡眠的进程个数加一
+    if(cvp->owner->next_count > 0)
+        up(&(cvp->owner->next));//唤醒进程链表中的下一个进程
+    else
+        up(&(cvp->owner->mutex));//唤醒睡在monitor.mutex上的进程 
+    down(&(cvp->sem));   
+    cvp->count --;
     cprintf("cond_wait end:  cvp %x, cvp->count %d, cvp->owner->next_count %d\n", cvp, cvp->count, cvp->owner->next_count);
 }

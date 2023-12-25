@@ -127,6 +127,7 @@ dev_lookup(struct inode *node, char *path, struct inode **node_store) {
 
 /*
  * Function table for device inodes.
+ * 设备文件的inode_ops，提供设备文件应具备的接口
  */
 static const struct inode_ops dev_node_ops = {
     .vop_magic                      = VOP_MAGIC,

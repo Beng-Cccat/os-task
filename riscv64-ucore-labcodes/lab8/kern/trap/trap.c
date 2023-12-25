@@ -146,6 +146,13 @@ void interrupt_handler(struct trapframe *tf) {
             // In fact, Call sbi_set_timer will clear STIP, or you can clear it
             // directly.
             // clear_csr(sip, SIP_STIP);
+            //按理说用户程序看到的stdin是“只读”的
+            //但是，一个文件，只往外读，不往里写，是不是会导致数据"不守恒"?
+            //我们在这里就是把控制台输入的数据“写到”stdin里(实际上是写到一个缓冲区里)
+            //这里的cons_getc()并不一定能返回一个字符,可以认为是轮询
+    		//如果cons_getc()返回0, 那么dev_stdin_write()函数什么都不做
+            //一般来说，应当有键盘的外设中断来提醒我们
+            //在qemu里收不到这个中断，于是只能借助时钟中断
             clock_set_next_event();
             ++ticks;
             run_timer_list();

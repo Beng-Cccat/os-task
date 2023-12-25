@@ -11,16 +11,18 @@ struct inode;
 struct stat;
 struct dirent;
 
+//指一个进程和它打开的一个文件之间的关系，存储在内核态的内存中
+//仅当某个进程打开某个文件的时候才存在
 struct file {
     enum {
         FD_NONE, FD_INIT, FD_OPENED, FD_CLOSED,
-    } status;
-    bool readable;
-    bool writable;
-    int fd;
-    off_t pos;
-    struct inode *node;
-    int open_count;
+    } status;               //访问文件的执行状态
+    bool readable;          //文件是否可读
+    bool writable;          //文件是否可写
+    int fd;                 //文件在filename中的索引值
+    off_t pos;              //访问文件的当前位置
+    struct inode *node;     //该文件对应的内存inode指针
+    int open_count;         //打开此文件的次数
 };
 
 void fd_array_init(struct file *fd_array);

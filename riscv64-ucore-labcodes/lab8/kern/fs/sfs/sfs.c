@@ -12,6 +12,7 @@
 void
 sfs_init(void) {
     int ret;
+    //把disk0挂载在虚拟文件系统中
     if ((ret = sfs_mount("disk0")) != 0) {
         panic("failed: sfs: sfs_mount: %e.\n", ret);
     }

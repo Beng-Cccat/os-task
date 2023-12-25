@@ -6,6 +6,10 @@
 #include <error.h>
 #include <unistd.h>
 
+/**
+ * 这是用户态程序可以使用的系统库函数
+ */
+
 int
 open(const char *path, uint32_t open_flags) {
     return sys_open(path, open_flags);
@@ -16,6 +20,9 @@ close(int fd) {
     return sys_close(fd);
 }
 
+//从文件fd读取len个字节到base这个位置
+//当fd=0时，表示从stdin读取
+//用户态函数：read->sys_read->syscall
 int
 read(int fd, void *base, size_t len) {
     return sys_read(fd, base, len);

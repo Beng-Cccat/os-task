@@ -5,6 +5,7 @@
 
 /*
  * iobuf is a buffer Rd/Wr status record
+ * 传递一个io请求
  */
 struct iobuf {
     void *io_base;     // the base addr of buffer (used for Rd/Wr)

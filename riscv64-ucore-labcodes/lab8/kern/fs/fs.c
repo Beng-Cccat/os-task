@@ -10,8 +10,11 @@
 //called when init_main proc start
 void
 fs_init(void) {
+    //虚拟文件系统初始化函数
     vfs_init();
+    //设备初始化函数
     dev_init();
+    //simpleFS文件系统初始化函数
     sfs_init();
 }
 

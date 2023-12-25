@@ -12,6 +12,7 @@
 #include <assert.h>
 #include <proc.h>
 // device info entry in vdev_list 
+// device对应inode
 typedef struct {
     const char *devname;
     struct inode *devnode;
@@ -21,10 +22,10 @@ typedef struct {
 } vfs_dev_t;
 
 #define le2vdev(le, member)                         \
-    to_struct((le), vfs_dev_t, member)
+    to_struct((le), vfs_dev_t, member) // 为了使用链表定义的宏
 
 static list_entry_t vdev_list;     // device info list in vfs layer
-static semaphore_t vdev_list_sem;
+static semaphore_t vdev_list_sem; //互斥访问，一个双向链表对应一个sem
 
 static void
 lock_vdev_list(void) {
@@ -217,23 +218,30 @@ find_mount(const char *devname, vfs_dev_t **vdev_store) {
 /*
  * vfs_mount - Mount a filesystem. Once we've found the device, call MOUNTFUNC to
  *             set up the filesystem and hand back a struct fs.
+ * 挂载文件系统
  *
  * The DATA argument is passed through unchanged to MOUNTFUNC.
  */
 int
 vfs_mount(const char *devname, int (*mountfunc)(struct device *dev, struct fs **fs_store)) {
     int ret;
+    //用于对挂载设备列表进行加锁和解锁的函数，确保在操作设备列表时的线程安全性。
     lock_vdev_list();
+    //指向挂载设备的相关信息
     vfs_dev_t *vdev;
+    //查找具有指定设备名称的挂载设备
     if ((ret = find_mount(devname, &vdev)) != 0) {
         goto out;
     }
+    //如果已经被挂载
     if (vdev->fs != NULL) {
         ret = -E_BUSY;
         goto out;
     }
+    //确保设备的名称和可挂载性
     assert(vdev->devname != NULL && vdev->mountable);
 
+    //获取挂载设备的相关信息
     struct device *dev = vop_info(vdev->devnode, device);
     if ((ret = mountfunc(dev, &(vdev->fs))) == 0) {
         assert(vdev->fs != NULL);

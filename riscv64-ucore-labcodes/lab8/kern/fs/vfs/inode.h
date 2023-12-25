@@ -12,56 +12,66 @@ struct iobuf;
 
 /*
  * A struct inode is an abstract representation of a file.
+ * struct inode 是文件的抽象表示。
  *
- * It is an interface that allows the kernel's filesystem-independent 
+ * It is an interface that allows the kernel's filesystem-independent
  * code to interact usefully with multiple sets of filesystem code.
+ *
+ * 它是一个接口，允许内核的与文件系统无关的代码与多个文件系统代码交互地使用。
  */
 
 /*
  * Abstract low-level file.
  *
  * Note: in_info is Filesystem-specific data, in_type is the inode type
+ * in_info 是特定于文件系统的数据，in_type 是 inode 类型。
  *
  * open_count is managed using VOP_INCOPEN and VOP_DECOPEN by
  * vfs_open() and vfs_close(). Code above the VFS layer should not
  * need to worry about it.
+ * open_count 是由 vfs_open() 和 vfs_close() 使用 VOP_INCOPEN 和 VOP_DECOPEN 管理的。
+ * 位于 VFS 层以上的代码不需要担心它
  */
-struct inode {
-    union {
-        struct device __device_info;
-        struct sfs_inode __sfs_inode_info;
+//实际负责把不同文件系统的特定索引节点信息统一封装起来，避免进程直接访问具体文件系统
+struct inode
+{
+    union                                   //包含不同文件系统特定inode信息的union成员变量
+    {
+        struct device __device_info;        //设备文件系统内存inode信息
+        struct sfs_inode __sfs_inode_info;  //SFS文件系统内存inode信息
     } in_info;
-    enum {
+    enum
+    {
         inode_type_device_info = 0x1234,
         inode_type_sfs_inode_info,
-    } in_type;
-    int ref_count;
-    int open_count;
-    struct fs *in_fs;
-    const struct inode_ops *in_ops;
+    } in_type;                              //此inode所属文件系统类型
+    int ref_count;                          //此inode的引用计数
+    int open_count;                         //打开此inode对应文件的个数
+    struct fs *in_fs;                       //抽象的文件系统，包含访问文件系统的函数指针
+    const struct inode_ops *in_ops;         //抽象的inode操作，包含访问inode的函数指针
 };
 
-#define __in_type(type)                                             inode_type_##type##_info
+#define __in_type(type) inode_type_##type##_info
 
-#define check_inode_type(node, type)                                ((node)->in_type == __in_type(type))
+#define check_inode_type(node, type) ((node)->in_type == __in_type(type))
 
-#define __vop_info(node, type)                                      \
-    ({                                                              \
-        struct inode *__node = (node);                              \
-        assert(__node != NULL && check_inode_type(__node, type));   \
-        &(__node->in_info.__##type##_info);                         \
-     })
+#define __vop_info(node, type)                                    \
+    ({                                                            \
+        struct inode *__node = (node);                            \
+        assert(__node != NULL && check_inode_type(__node, type)); \
+        &(__node->in_info.__##type##_info);                       \
+    })
 
-#define vop_info(node, type)                                        __vop_info(node, type)
+#define vop_info(node, type) __vop_info(node, type)
 
-#define info2node(info, type)                                       \
+#define info2node(info, type) \
     to_struct((info), struct inode, in_info.__##type##_info)
 
 struct inode *__alloc_inode(int type);
 
-#define alloc_inode(type)                                           __alloc_inode(__in_type(type))
+#define alloc_inode(type) __alloc_inode(__in_type(type))
 
-#define MAX_INODE_COUNT                     0x10000
+#define MAX_INODE_COUNT 0x10000
 
 int inode_ref_inc(struct inode *node);
 int inode_ref_dec(struct inode *node);
@@ -71,7 +81,7 @@ int inode_open_dec(struct inode *node);
 void inode_init(struct inode *node, const struct inode_ops *ops, struct fs *fs);
 void inode_kill(struct inode *node);
 
-#define VOP_MAGIC                           0x8c4ba476
+#define VOP_MAGIC 0x8c4ba476
 
 /*
  * Abstract operations on a inode.
@@ -84,7 +94,7 @@ void inode_kill(struct inode *node);
  *                      reject illegal or undesired open modes. Note that
  *                      various operations can be performed without the
  *                      file actually being opened.
- *                      The inode need not look at O_CREAT, O_EXCL, or 
+ *                      The inode need not look at O_CREAT, O_EXCL, or
  *                      O_TRUNC, as these are handled in the VFS layer.
  *
  *                      VOP_EACHOPEN should not be called directly from
@@ -128,7 +138,7 @@ void inode_kill(struct inode *node);
  *                      DATA. The interpretation of the data is specific
  *                      to each ioctl.
  *
- *    vop_fstat        -Return info about a file. The pointer is a 
+ *    vop_fstat        -Return info about a file. The pointer is a
  *                      pointer to struct stat; see stat.h.
  *
  *    vop_gettype     - Return type of file. The values for file types
@@ -147,7 +157,7 @@ void inode_kill(struct inode *node);
  *                      in, discarding any excess blocks.
  *
  *    vop_namefile    - Compute pathname relative to filesystem root
- *                      of the file and copy to the specified io buffer. 
+ *                      of the file and copy to the specified io buffer.
  *                      Need not work on objects that are not
  *                      directories.
  *
@@ -165,8 +175,12 @@ void inode_kill(struct inode *node);
  *                      DIR, and hand back the inode for the file it
  *                      refers to. May destroy PATHNAME. Should increment
  *                      refcount on inode handed back.
+ * 
+ * inode_ops是对常规文件、目录、设备文件所有操作的一个抽象函数表示。
+ * 对于某一具体的文件系统中的文件或目录，只需实现相关的函数就可以被用户进程访问
  */
-struct inode_ops {
+struct inode_ops
+{
     unsigned long vop_magic;
     int (*vop_open)(struct inode *node, uint32_t open_flags);
     int (*vop_close)(struct inode *node);
@@ -190,59 +204,58 @@ struct inode_ops {
  */
 void inode_check(struct inode *node, const char *opstr);
 
-#define __vop_op(node, sym)                                                                         \
-    ({                                                                                              \
-        struct inode *__node = (node);                                                              \
-        assert(__node != NULL && __node->in_ops != NULL && __node->in_ops->vop_##sym != NULL);      \
-        inode_check(__node, #sym);                                                                  \
-        __node->in_ops->vop_##sym;                                                                  \
-     })
+#define __vop_op(node, sym)                                                                    \
+    ({                                                                                         \
+        struct inode *__node = (node);                                                         \
+        assert(__node != NULL && __node->in_ops != NULL && __node->in_ops->vop_##sym != NULL); \
+        inode_check(__node, #sym);                                                             \
+        __node->in_ops->vop_##sym;                                                             \
+    })
 
-#define vop_open(node, open_flags)                                  (__vop_op(node, open)(node, open_flags))
-#define vop_close(node)                                             (__vop_op(node, close)(node))
-#define vop_read(node, iob)                                         (__vop_op(node, read)(node, iob))
-#define vop_write(node, iob)                                        (__vop_op(node, write)(node, iob))
-#define vop_fstat(node, stat)                                       (__vop_op(node, fstat)(node, stat))
-#define vop_fsync(node)                                             (__vop_op(node, fsync)(node))
-#define vop_namefile(node, iob)                                     (__vop_op(node, namefile)(node, iob))
-#define vop_getdirentry(node, iob)                                  (__vop_op(node, getdirentry)(node, iob))
-#define vop_reclaim(node)                                           (__vop_op(node, reclaim)(node))
-#define vop_ioctl(node, op, data)                                   (__vop_op(node, ioctl)(node, op, data))
-#define vop_gettype(node, type_store)                               (__vop_op(node, gettype)(node, type_store))
-#define vop_tryseek(node, pos)                                      (__vop_op(node, tryseek)(node, pos))
-#define vop_truncate(node, len)                                     (__vop_op(node, truncate)(node, len))
-#define vop_create(node, name, excl, node_store)                    (__vop_op(node, create)(node, name, excl, node_store))
-#define vop_lookup(node, path, node_store)                          (__vop_op(node, lookup)(node, path, node_store))
+#define vop_open(node, open_flags) (__vop_op(node, open)(node, open_flags))
+#define vop_close(node) (__vop_op(node, close)(node))
+#define vop_read(node, iob) (__vop_op(node, read)(node, iob))
+#define vop_write(node, iob) (__vop_op(node, write)(node, iob))
+#define vop_fstat(node, stat) (__vop_op(node, fstat)(node, stat))
+#define vop_fsync(node) (__vop_op(node, fsync)(node))
+#define vop_namefile(node, iob) (__vop_op(node, namefile)(node, iob))
+#define vop_getdirentry(node, iob) (__vop_op(node, getdirentry)(node, iob))
+#define vop_reclaim(node) (__vop_op(node, reclaim)(node))
+#define vop_ioctl(node, op, data) (__vop_op(node, ioctl)(node, op, data))
+#define vop_gettype(node, type_store) (__vop_op(node, gettype)(node, type_store))
+#define vop_tryseek(node, pos) (__vop_op(node, tryseek)(node, pos))
+#define vop_truncate(node, len) (__vop_op(node, truncate)(node, len))
+#define vop_create(node, name, excl, node_store) (__vop_op(node, create)(node, name, excl, node_store))
+#define vop_lookup(node, path, node_store) (__vop_op(node, lookup)(node, path, node_store))
 
-
-#define vop_fs(node)                                                ((node)->in_fs)
-#define vop_init(node, ops, fs)                                     inode_init(node, ops, fs)
-#define vop_kill(node)                                              inode_kill(node)
+#define vop_fs(node) ((node)->in_fs)
+#define vop_init(node, ops, fs) inode_init(node, ops, fs)
+#define vop_kill(node) inode_kill(node)
 
 /*
  * Reference count manipulation (handled above filesystem level)
  */
-#define vop_ref_inc(node)                                           inode_ref_inc(node)
-#define vop_ref_dec(node)                                           inode_ref_dec(node)
+#define vop_ref_inc(node) inode_ref_inc(node)
+#define vop_ref_dec(node) inode_ref_dec(node)
 /*
  * Open count manipulation (handled above filesystem level)
  *
  * VOP_INCOPEN is called by vfs_open. VOP_DECOPEN is called by vfs_close.
  * Neither of these should need to be called from above the vfs layer.
  */
-#define vop_open_inc(node)                                          inode_open_inc(node)
-#define vop_open_dec(node)                                          inode_open_dec(node)
-
+#define vop_open_inc(node) inode_open_inc(node)
+#define vop_open_dec(node) inode_open_dec(node)
 
 static inline int
-inode_ref_count(struct inode *node) {
+inode_ref_count(struct inode *node)
+{
     return node->ref_count;
 }
 
 static inline int
-inode_open_count(struct inode *node) {
+inode_open_count(struct inode *node)
+{
     return node->open_count;
 }
 
 #endif /* !__KERN_FS_VFS_INODE_H__ */
-

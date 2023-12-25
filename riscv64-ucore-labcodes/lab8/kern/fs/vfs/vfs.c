@@ -26,6 +26,7 @@ __alloc_fs(int type) {
 void
 vfs_init(void) {
     sem_init(&bootfs_sem, 1);
+    //建立了一个device list双向链表vdev_list，为后续设备以文件形式呈现建立查找访问通道
     vfs_devlist_init();
 }
 

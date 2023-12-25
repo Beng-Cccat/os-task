@@ -480,7 +480,15 @@ do_pgfault(struct mm_struct *mm, uint_t error_code, uintptr_t addr) {
             }    
             page_insert(mm->pgdir, page, addr, perm);
             swap_map_swappable(mm, addr, page, 1);*/
-
+            ret=swap_in(mm,addr,&page);
+            if(ret!=0){
+                cprintf("swap failed\n");
+                goto failed;
+            }
+            //加入映射
+            page_insert(mm->pgdir,page,addr,perm);
+            // 设置页面可交换
+            swap_map_swappable(mm,addr,page,1);
             page->pra_vaddr = addr;
         } else {
             cprintf("no swap_init_ok but ptep is %x, failed\n", *ptep);
